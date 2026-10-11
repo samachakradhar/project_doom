@@ -1,0 +1,86 @@
+# =====================================================================
+# DR. DOOM - ROOT GITIGNORE FOR MONOREPO
+# =====================================================================
+
+# Environment and Secrets
+.env
+.env.*
+!.env.example
+*.env
+*.pem
+*.key
+*.cert
+
+# Databases & SQLite
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+backend/storage/*.db
+backend/storage/records.db
+
+# Private Patient Files & Document Storage Vault
+backend/storage/vault/*
+!backend/storage/vault/.gitkeep
+storage/vault/*
+!storage/vault/.gitkeep
+uploads/
+temp/
+tmp/
+
+# Python Runtime & Dependencies
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+backend/.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+*.pyre/
+
+# Node.js & Frontend
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+out/
+frontend/out/
+build/
+frontend/build/
+.vercel
+frontend/.vercel
+*.tsbuildinfo
+frontend/*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS & Editor Artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*~
