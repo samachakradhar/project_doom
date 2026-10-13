@@ -102,7 +102,7 @@ class MedicalExtractor:
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY")
         self.client = genai.Client(api_key=self.api_key) if self.api_key else None
-        self.models = ["gemini-flash-lite-latest", "gemini-3.8-flash", "gemini-flash-latest"]
+        self.models = ["gemini-flash-lite-latest", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash"]
 
     def extract_and_verify(
         self,

@@ -67,7 +67,7 @@ function YoutubeIcon({ className }: { className?: string }) {
 
 export default function LandingPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [showHelplineModal, setShowHelplineModal] = useState(false);
 
   // Draggable Flying Bot State
@@ -150,19 +150,6 @@ export default function LandingPage() {
     };
     setIsDraggingBot(true);
   };
-
-  // When returning to the website after having logged in, directly open the chatbot
-  // Fresh visits (or explicit homepage clicks via ?fresh=1) remain on the homepage
-  React.useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      if (typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('fresh') !== '1') {
-          router.replace('/chat');
-        }
-      }
-    }
-  }, [isAuthenticated, isLoading, router]);
 
   const handleDoomClick = () => {
     if (isAuthenticated) {

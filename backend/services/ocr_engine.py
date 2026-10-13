@@ -6,6 +6,10 @@ from pydantic import BaseModel, Field
 import numpy as np
 from google import genai
 from google.genai import types
+from dotenv import load_dotenv
+
+# Ensure environment variables are loaded
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 logger = logging.getLogger("DOOM_OCR")
 
@@ -43,7 +47,7 @@ class MedicalOCREngine:
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY")
         self.client = genai.Client(api_key=self.api_key) if self.api_key else None
-        self.models = ["gemini-flash-lite-latest", "gemini-3.8-flash", "gemini-flash-latest"]
+        self.models = ["gemini-flash-lite-latest", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash"]
         self._paddle_ocr = None
         self._paddle_available = False
         self._tesseract_available = False
@@ -53,8 +57,10 @@ class MedicalOCREngine:
         """Initialize and verify PaddleOCR and Tesseract engines."""
         try:
             from paddleocr import PaddleOCR
-            # Initialize PaddleOCR with direction angle classification
-            self._paddle_ocr = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
+            try:
+                self._paddle_ocr = PaddleOCR(use_angle_cls=True, lang='en')
+            except Exception:
+                self._paddle_ocr = PaddleOCR(lang='en')
             self._paddle_available = True
             logger.info("PaddleOCR engine initialized successfully.")
         except Exception as e:

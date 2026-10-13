@@ -543,28 +543,83 @@ export default function ChatbotWorkspace() {
     []
   );
 
-  // Build markdown text for chat stream from active language report
+  // Build markdown text for chat stream from active language report including raw scanned text and all extracted data
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const buildReportText = useCallback((data: any, lang: Language): { markdown: string; speech: string } => {
+  const buildReportText = useCallback((data: any, lang: Language, targetFileName?: string): { markdown: string; speech: string } => {
     const langKey = lang === 'tanglish' ? 'tanglish' : lang;
     const report: LanguageReportData | null = data.reports_by_language?.[langKey];
+    const rawOcrText = (data.raw_text || '').trim();
+    const isMed = data.is_medical !== false;
+
+    // Build raw scanned text section
+    const scannedTextHeader = {
+      telugu: '### 📝 స్కాన్ చేసిన పాఠ్యం (OCR Scanned Text)',
+      hindi: '### 📝 स्कैन किया गया पाठ (OCR Scanned Text)',
+      tamil: '### 📝 ஸ்கேன் செய்யப்பட்ட உரை (OCR Scanned Text)',
+      tanglish: '### 📝 Scanned Text (OCR Transcribed Text)',
+      english: '### 📝 Scanned Text (OCR Extraction)'
+    }[lang] || '### 📝 Scanned Text (OCR Extraction)';
+
+    const scannedTextSection = rawOcrText
+      ? `${scannedTextHeader}\n\`\`\`text\n${rawOcrText}\n\`\`\``
+      : `${scannedTextHeader}\n*(No readable text detected on this image)*`;
 
     if (report && report.full_markdown) {
       return {
-        markdown: report.full_markdown,
+        markdown: `${scannedTextSection}\n\n---\n\n${report.full_markdown}`,
         speech: report.speech_text || report.patient_summary || ''
       };
     }
 
-    if (data.is_medical === false) {
-      const nonMed = `### ⚠️ Non-Medical File Detected\n\n• **Status:** The uploaded document could not be identified as a medical report or prescription.\n• **Safety Notice:** Dr. Doom strictly analyzes authentic healthcare records and does not invent clinical findings for everyday images.`;
-      return { markdown: nonMed, speech: "The uploaded file could not be identified as a medical document. No clinical parameters or prescriptions have been assigned." };
+    if (!isMed) {
+      const nonMedHeader = {
+        telugu: '### ⚠️ గుర్తించిన చిత్రం / సాధారణ పత్రం',
+        hindi: '### ⚠️ सामान्य दस्तावेज़ / गैर-चिकित्सीय फ़ाइल',
+        tamil: '### ⚠️ பொது ஆவணம் / மருத்துவமல்லாத படம்',
+        tanglish: '### ⚠️ Non-Medical Image / General Document',
+        english: '### ⚠️ Non-Medical Document Detected'
+      }[lang] || '### ⚠️ Non-Medical Document Detected';
+
+      const nonMedNotice = {
+        telugu: '• **పరిశీలన:** అప్‌లోడ్ చేసిన ఫైల్ వైద్య నివేదిక లేదా ప్రిస్క్రిప్షన్ కాదు.\n• **సేకరణ వివరాలు:** పత్రంలోని స్కాన్ చేసిన టెక్స్ట్ పైన చూపబడింది. సాధారణ చిత్రాలకు వైద్య విలువలు కేటాయించబడవు.',
+        hindi: '• **विवरण:** यह फ़ाइल कोई मेडिकल पर्चा या लैब रिपोर्ट नहीं है।\n• **डेटा संग्रह:** चित्र में पहचाना गया टेक्स्ट ऊपर प्रदर्शित है। सामान्य फ़ाइलों के लिए कोई नैदानिक दवा या टेस्ट नहीं जोड़ा गया।',
+        tamil: '• **நிலை:** பதிவேற்றப்பட்ட கோப்பு மருத்துவ அறிக்கை அல்ல.\n• **சேகரிக்கப்பட்ட தகவல்:** படத்தில் உள்ள உரை மேலே காட்டப்பட்டுள்ளது.',
+        tanglish: '• **Notice:** This is a non-medical file/image.\n• **Collected Data:** Scanned text extracted above. No medical prescriptions are assigned for non-clinical images.',
+        english: '• **Status:** The uploaded document is not a medical report or prescription.\n• **Collected Data:** Literal text from the image is transcribed above.'
+      }[lang] || '• **Status:** Non-medical image.\n• **Collected Data:** Literal text from the image is transcribed above.';
+
+      return {
+        markdown: `${scannedTextSection}\n\n---\n\n${nonMedHeader}\n\n${nonMedNotice}`,
+        speech: "Document processed. Non-medical document detected."
+      };
     }
 
-    const fallbackSummary = data.patient_summary || data.plain_language_summary || "Document processed successfully.";
+    // Synthesize structured report if full_markdown is missing
+    const findingsList = data.extracted_findings || data.lab_results || data.structured_data?.lab_results || [];
+    const medsList = data.medications || data.structured_data?.medications || data.MedicationRequests || [];
+    const alertsList = data.safety_alerts || data.professional_analysis?.critical_flags || [];
+    const summary = report?.patient_summary || data.patient_summary || data.plain_language_summary || "Document processed successfully.";
+
+    let synthesized = `${scannedTextSection}\n\n---\n\n### 🩺 Medical Document Analysis\n\n${summary}`;
+
+    if (findingsList.length > 0) {
+      synthesized += `\n\n#### 🔬 Lab Results & Diagnostic Values\n` +
+        findingsList.map((f: any) => `- **${f.test_name}**: ${f.value} ${f.unit || ''} *(${f.status || 'Normal'})* ${f.reference_interval ? `| Normal: ${f.reference_interval}` : ''}`).join('\n');
+    }
+
+    if (medsList.length > 0) {
+      synthesized += `\n\n#### 💊 Prescribed Medications\n` +
+        medsList.map((m: any) => `- **${m.name}** | Dose: ${m.dosage || 'Standard'} | Timing: ${m.timing || 'After meals'} | Purpose: ${m.purpose || 'Treatment'}`).join('\n');
+    }
+
+    if (alertsList.length > 0) {
+      synthesized += `\n\n#### ⚠️ Clinical Safety Alerts\n` +
+        alertsList.map((a: any) => `- ${typeof a === 'string' ? a : a.message || JSON.stringify(a)}`).join('\n');
+    }
+
     return {
-      markdown: `### 📋 Medical Report Analysis\n\n${fallbackSummary}`,
-      speech: data.speech_text || fallbackSummary
+      markdown: synthesized,
+      speech: report?.speech_text || data.speech_text || summary
     };
   }, []);
 
@@ -923,12 +978,9 @@ export default function ChatbotWorkspace() {
         setIsScanning(false);
         setUploadProgress(100);
 
-        const activeLangRep = getActiveLanguageReport(data, language);
-        const welcomeMsg = (UI_STRINGS[language] || UI_STRINGS.english).docWelcome(targetFile.name);
-        const speechToUse = activeLangRep?.speech_text || activeLangRep?.patient_summary || data.speech_text || welcomeMsg;
-        
-        // Show clean conversational welcome message without dumping raw markdown tables into chat
-        streamTextLineByLine(welcomeMsg, assistantMsgId, speechToUse);
+        // Generate complete report with literal scanned OCR text and all extracted clinical data
+        const reportResult = buildReportText(data, language, targetFile.name);
+        streamTextLineByLine(reportResult.markdown, assistantMsgId, reportResult.speech);
 
         // Smoothly scroll up so the latest generated answer & report are displayed in view
         scrollToCreatedPoint(`msg-${userMsgId}`);
